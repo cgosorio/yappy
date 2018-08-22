@@ -1,0 +1,172 @@
+Return-Path: <cgosorio@ubu.es>
+Delivered-To: cgosorio@ubu.es
+Received: from estafeta.ubu.es
+	by estafeta.ubu.es (Dovecot) with LMTP id PpyjIWivyFSPUQAAhYE3HA
+	for <cgosorio@ubu.es>; Wed, 28 Jan 2015 10:44:31 +0100
+Received: from relay.ubu.es (relay.ubu.es [193.146.160.3])
+	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by estafeta.ubu.es (eubumail) with ESMTPS id ACD8AC1631
+	for <cgosorio@ubu.es>; Wed, 28 Jan 2015 10:44:31 +0100 (CET)
+Received: from [193.146.170.57] (cerezo.inf.ubu.es [193.146.170.57])
+	(using TLSv1 with cipher DHE-RSA-AES128-SHA (128/128 bits))
+	(No client certificate requested)
+	(Authenticated sender: cgosorio@ubu.es)
+	by relay.ubu.es (ubumail) with ESMTPSA id 986B1AC036;
+	Wed, 28 Jan 2015 10:44:31 +0100 (CET)
+X-Virus-Status: Clean
+X-Virus-Scanned: clamav-milter 0.95.2 at virtual310
+Message-ID: <54C8AF96.2080009@ubu.es>
+Date: Wed, 28 Jan 2015 10:44:54 +0100
+From: =?ISO-8859-1?Q?C=E9sar_Garc=EDa-Osorio?= <cgosorio@ubu.es>
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:24.0) Gecko/20100101 Thunderbird/24.6.0
+MIME-Version: 1.0
+To: nam@dcc.fc.up.pt, rvr@dcc.fc.up.pt, 
+ Cesar Garcia-Osorio <cgosorio@ubu.es>
+Subject: Error in Yappy
+Content-Type: multipart/alternative;
+ boundary="------------040203010706060007010906"
+
+This is a multi-part message in MIME format.
+--------------040203010706060007010906
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
+
+Hello I am an associate professor from the University of Burgos, 
+recently I have downloaded yappy parser (by the way, very nice tool, 
+thanks to make it publicly available) and start to use it for a personal 
+project. I have discovered an error that makes the tool not to calculate 
+correctly the FOLLOW sets. The error is in the method FOLLOW of class 
+CFGrammar, at line 491 in the version I am using:
+
+Version: $Id: parser.py,v 1.18 2006-07-19 09:52:06 rvr Exp $
+
+The code snippet is:
+
+  486                        for  k  in  range(len(r)-1):  
+  487                            j  =  k  +  1  
+  488                            if  r[k]  in  self.nonterminals  and  self.nullable[string.join(r[j:])]:  
+  489                                if  self.follow[r[k]].s_extend  <http://www.dcc.fc.up.pt/%7Ervr/yappyDoc/yappy.parser-pysrc.html#>(self.follow[s]):  
+  490                                    e  =  1  
+  491                                break  
+
+
+The problem is the break at line 491, it should be indented an extra 
+tab, within the if. The corrected code would be:
+
+  486                        for  k  in  range(len(r)-1):  
+  487                            j  =  k  +  1  
+  488                            if  r[k]  in  self.nonterminals  and  self.nullable[string.join(r[j:])]:  
+  489                                if  self.follow[r[k]].s_extend  <http://www.dcc.fc.up.pt/%7Ervr/yappyDoc/yappy.parser-pysrc.html#>(self.follow[s]):  
+  490                                    e  =  1  
+  491                                     break  
+
+For example with this grammar:
+
+S --> B C D A
+A --> n A | ?
+B --> t
+C --> b D e | ?
+D --> i E | ?
+E --> S f | p
+
+Yappy calculate as FOLLOW(C) the following set: {i, n}, but the correct
+FOLLOW(C) is {i, n, $, f}
+
+In this grammar the set of nullable symbols is A, C, D, so from first 
+production
+in FOLLOW(C) we should have also included the FOLLOW(S)={$,f} since both 
+D and A are
+nullable, and those two symbols are the one missing in the current 
+implementation.
+
+
+Best regards,
+
+
+
+
+
+-- 
+Dr. César García-Osorio
+Dpto. de Ingeniería Civil , Área de Lenguajes y Sistemas Informáticos
+Universidad de Burgos, Avda. Cantabría, s/n, 09006 Burgos (Spain)
+Tel:     +34 947 25 9358,   Fax:     +34 947 25 8910
+e-mail: cgosorio@ubu.es, webpage: http://cgosorio.es
+
+
+--------------040203010706060007010906
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+<html>
+  <head>
+
+    <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+  </head>
+  <body bgcolor="#FFFFFF" text="#000000">
+    Hello I am an associate professor from the University of Burgos,
+    recently I have downloaded yappy parser (by the way, very nice tool,
+    thanks to make it publicly available) and start to use it for a
+    personal project. I have discovered an error that makes the tool not
+    to calculate correctly the FOLLOW sets. The error is in the method
+    FOLLOW of class CFGrammar, at line 491 in the version I am using:<br>
+    <br>
+    Version: $Id: parser.py,v 1.18 2006-07-19 09:52:06 rvr Exp $&nbsp; <br>
+    <br>
+    The code snippet is:<br>
+    <pre class="py-src"><a name="L486"></a><tt class="py-lineno"> 486</tt>  <tt class="py-line">                    <tt class="py-keyword">for</tt> <tt class="py-name">k</tt> <tt class="py-keyword">in</tt> <tt class="py-name">range</tt><tt class="py-op">(</tt><tt class="py-name">len</tt><tt class="py-op">(</tt><tt class="py-name">r</tt><tt class="py-op">)</tt><tt class="py-op">-</tt><tt class="py-number">1</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+<a name="L487"></a><tt class="py-lineno"> 487</tt>  <tt class="py-line">                        <tt class="py-name">j</tt> <tt class="py-op">=</tt> <tt class="py-name">k</tt> <tt class="py-op">+</tt> <tt class="py-number">1</tt> </tt>
+<a name="L488"></a><tt class="py-lineno"> 488</tt>  <tt class="py-line">                        <tt class="py-keyword">if</tt> <tt class="py-name">r</tt><tt class="py-op">[</tt><tt class="py-name">k</tt><tt class="py-op">]</tt> <tt class="py-keyword">in</tt> <tt class="py-name">self</tt><tt class="py-op">.</tt><tt class="py-name">nonterminals</tt> <tt class="py-keyword">and</tt> <tt class="py-name">self</tt><tt class="py-op">.</tt><tt class="py-name">nullable</tt><tt class="py-op">[</tt><tt class="py-name">string</tt><tt class="py-op">.</tt><tt class="py-name">join</tt><tt class="py-op">(</tt><tt class="py-name">r</tt><tt class="py-op">[</tt><tt class="py-name">j</tt><tt class="py-op">:</tt><tt class="py-op">]</tt><tt class="py-op">)</tt><tt class="py-op">]</tt><tt class="py-op">:</tt> </tt>
+<a name="L489"></a><tt class="py-lineno"> 489</tt>  <tt class="py-line">                            <tt class="py-keyword">if</tt> <tt class="py-name">self</tt><tt class="py-op">.</tt><tt class="py-name">follow</tt><tt class="py-op">[</tt><tt class="py-name">r</tt><tt class="py-op">[</tt><tt class="py-name">k</tt><tt class="py-op">]</tt><tt class="py-op">]</tt><tt class="py-op">.</tt><tt id="link-76" class="py-name"><a title="yappy.osets.Set.s_extend" class="py-name" href="http://www.dcc.fc.up.pt/%7Ervr/yappyDoc/yappy.parser-pysrc.html#" onclick="return doclink('link-76', 's_extend', 'link-36');">s_extend</a></tt><tt class="py-op">(</tt><tt class="py-name">self</tt><tt class="py-op">.</tt><tt class="py-name">follow</tt><tt class="py-op">[</tt><tt class="py-name">s</tt><tt class="py-op">]</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+<a name="L490"></a><tt class="py-lineno"> 490</tt>  <tt class="py-line">                                <tt class="py-name">e</tt> <tt class="py-op">=</tt> <tt class="py-number">1</tt> </tt>
+<a name="L491"></a><tt class="py-lineno"> 491</tt>  <tt class="py-line">                            <tt class="py-keyword">break</tt> </tt></pre>
+    <br>
+    The problem is the break at line 491, it should be indented an extra
+    tab, within the if. The corrected code would be:<br>
+    <br>
+    <pre class="py-src"><a name="L486"></a><tt class="py-lineno"> 486</tt>  <tt class="py-line">                    <tt class="py-keyword">for</tt> <tt class="py-name">k</tt> <tt class="py-keyword">in</tt> <tt class="py-name">range</tt><tt class="py-op">(</tt><tt class="py-name">len</tt><tt class="py-op">(</tt><tt class="py-name">r</tt><tt class="py-op">)</tt><tt class="py-op">-</tt><tt class="py-number">1</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+<a name="L487"></a><tt class="py-lineno"> 487</tt>  <tt class="py-line">                        <tt class="py-name">j</tt> <tt class="py-op">=</tt> <tt class="py-name">k</tt> <tt class="py-op">+</tt> <tt class="py-number">1</tt> </tt>
+<a name="L488"></a><tt class="py-lineno"> 488</tt>  <tt class="py-line">                        <tt class="py-keyword">if</tt> <tt class="py-name">r</tt><tt class="py-op">[</tt><tt class="py-name">k</tt><tt class="py-op">]</tt> <tt class="py-keyword">in</tt> <tt class="py-name">self</tt><tt class="py-op">.</tt><tt class="py-name">nonterminals</tt> <tt class="py-keyword">and</tt> <tt class="py-name">self</tt><tt class="py-op">.</tt><tt class="py-name">nullable</tt><tt class="py-op">[</tt><tt class="py-name">string</tt><tt class="py-op">.</tt><tt class="py-name">join</tt><tt class="py-op">(</tt><tt class="py-name">r</tt><tt class="py-op">[</tt><tt class="py-name">j</tt><tt class="py-op">:</tt><tt class="py-op">]</tt><tt class="py-op">)</tt><tt class="py-op">]</tt><tt class="py-op">:</tt> </tt>
+<a name="L489"></a><tt class="py-lineno"> 489</tt>  <tt class="py-line">                            <tt class="py-keyword">if</tt> <tt class="py-name">self</tt><tt class="py-op">.</tt><tt class="py-name">follow</tt><tt class="py-op">[</tt><tt class="py-name">r</tt><tt class="py-op">[</tt><tt class="py-name">k</tt><tt class="py-op">]</tt><tt class="py-op">]</tt><tt class="py-op">.</tt><tt id="link-76" class="py-name"><a title="yappy.osets.Set.s_extend" class="py-name" href="http://www.dcc.fc.up.pt/%7Ervr/yappyDoc/yappy.parser-pysrc.html#" onclick="return doclink('link-76', 's_extend', 'link-36');">s_extend</a></tt><tt class="py-op">(</tt><tt class="py-name">self</tt><tt class="py-op">.</tt><tt class="py-name">follow</tt><tt class="py-op">[</tt><tt class="py-name">s</tt><tt class="py-op">]</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+<a name="L490"></a><tt class="py-lineno"> 490</tt>  <tt class="py-line">                                <tt class="py-name">e</tt> <tt class="py-op">=</tt> <tt class="py-number">1</tt> </tt>
+<a name="L491"></a><tt class="py-lineno"> 491</tt>  <tt class="py-line">                            <tt class="py-keyword">    break</tt> </tt></pre>
+    For example with this grammar:<br>
+    <br>
+    S --&gt; B C D A <br>
+    A --&gt; n A | &#949; <br>
+    B --&gt; t <br>
+    C --&gt; b D e | &#949; <br>
+    D --&gt; i E | &#949; <br>
+    E --&gt; S f | p <br>
+    <br>
+    Yappy calculate as FOLLOW(C) the following set: {i, n}, but the
+    correct<br>
+    FOLLOW(C) is {i, n, $, f}<br>
+    <br>
+    In this grammar the set of nullable symbols is A, C, D, so from
+    first production<br>
+    in FOLLOW(C) we should have also included the FOLLOW(S)={$,f} since
+    both D and A are <br>
+    nullable, and those two symbols are the one missing in the current
+    implementation.<br>
+    <br>
+    <br>
+    Best regards,<br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <pre class="moz-signature" cols="72">-- 
+Dr. C&eacute;sar Garc&iacute;a-Osorio
+Dpto. de Ingenier&iacute;a Civil , &Aacute;rea de Lenguajes y Sistemas Inform&aacute;ticos
+Universidad de Burgos, Avda. Cantabr&iacute;a, s/n, 09006 Burgos (Spain)
+Tel:     +34 947 25 9358,   Fax:     +34 947 25 8910
+e-mail: <a class="moz-txt-link-abbreviated" href="mailto:cgosorio@ubu.es">cgosorio@ubu.es</a>, webpage: <a class="moz-txt-link-freetext" href="http://cgosorio.es">http://cgosorio.es</a>
+
+</pre>
+  </body>
+</html>
+
+--------------040203010706060007010906--

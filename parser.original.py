@@ -74,7 +74,7 @@ class Lexer:
         C{re}: is an uncompiled python regular expression
 
         C{funct}: the name of
-        a function that returns the pair C{(TOKEN, SPECIAL_VALUE)}, where C{TOKEN}
+        a funcion that returns the pair C{(TOKEN, SPECIAL_VALUE)}, where C{TOKEN}
         is the token to be used by the parser and C{SPECIAL_VALUE} an eventual
         associated value. The argument is the matched string. If
         C{funct} equals C{""} the token is ignored. This can be
@@ -190,7 +190,7 @@ class LexicalError(YappyError):
         return "%s" % (self.value)
     
 class LexicalRulesErrorRE(YappyError):
-    """An error occurred parsing the RE part of a lexical rule"""
+    """An error occured parsing the RE part of a lexical rule"""
     def __init__(self,re,no=0):
         self.value = 'Error in RE "%s" at rule n.%d'%(re,no)
         self.rule = no
@@ -206,10 +206,10 @@ class GrammarError(YappyError):
         return "%s" % (self.value)
         
 class SLRConflictError(YappyError):
-    """Conflicting actions in building SLR parsing table. Grammar
+    """Confliting actions in building SLR parsing table. Grammar
      is not SLR(0)"""
     def __init__(self,i,a):
-        self.value = 'Conflicting action[%d,%s] in SLR parsing table ' %(i,a)
+        self.value = 'Confliting action[%d,%s] in SLR parsing table ' %(i,a)
         self.item = i
         self.symbol = a
     def __str__(self):
@@ -221,22 +221,22 @@ class LRConflictError(YappyError):
     def __init__(self,i,a):
         self.item = i
         self.symbol = a        
-        self.value = 'Conflicting action[%d,%s] in LR(1) parsing table ' %(self.item,self.symbol)
+        self.value = 'Confliting action[%d,%s] in LR(1) parsing table ' %(self.item,self.symbol)
 
     def __str__(self):
         return "%s" % (self.value)
     
 class LRConflicts(YappyError):
-    """Conflicting actions in building LR parsing table. Grammar
+    """Confliting actions in building LR parsing table. Grammar
      is not LR(1)"""
     def __init__(self):
-        self.value = """Warning>>> Several conflicting actions. Please
+        self.value = """Warning>>> Several confliting actions. Please
     consult self.Log for details"""
     def __str__(self):
         return "%s" % (self.value)    
 
 class LRParserError(YappyError):
-    """An error occurred in LR parsing program"""
+    """An error occured in LR parsing program"""
     def __init__(self,s,a):
         self.item = s
         self.symbol = a    
@@ -245,7 +245,7 @@ class LRParserError(YappyError):
         return  "%s" %(self.value)    
 
 class SemanticError(YappyError):
-    """An error occurred in the application of a semantic action"""
+    """An error occured in the application of a semantic action"""
     def __init__(self,m,n=0,r=None):
        self.value = m
        self.nrule = n
@@ -401,7 +401,7 @@ class CFGrammar:
                 self.FIRST_TRA(s,1)
 
     def FIRST_TRA(self,s,d):
-        """Transitive closure of C{FIRST(X)} """
+        """Transitiv closure of C{FIRST(X)} """
         self.ms.push(s)
         self.nd[s] = d
         """ calculating F1(s)"""
@@ -438,7 +438,7 @@ class CFGrammar:
                 self.nd[y] = -1 
                              
     def FIRST_NT(self,s):
-        """Recursively computes C{FIRST(X)} for a nonterminal  X"""
+        """ Recursivelly computes C{FIRST(X)} for a nonterminal  X"""
         if not self.ntr.has_key(s):
             return
         self.first[s] = osets.Set([])
@@ -488,17 +488,7 @@ class CFGrammar:
                         if r[k] in self.nonterminals and self.nullable[string.join(r[j:])]:
                             if self.follow[r[k]].s_extend(self.follow[s]):
                                 e = 1
-                                break # CGO: This was an ERROR in Yappy.
-                                      # It was incorrectly indented outside of 
-                                      # the if. As a consequence of this in a 
-                                      # grammar like this:
-                                      #   S -> B C D A ;
-                                      #   A -> n A | ;
-                                      #   B -> t  ;
-                                      #   C -> b D e | ;
-                                      #   D -> i E |   ;
-                                      #   E -> S f | p ;
-                                      # FOLLOW(C) was {i, n} instead of {i, n, $, f}
+                            break
 
     def TransClose(self):
         """For each nonterminal C{s} determines the set of nonterminals
@@ -537,7 +527,7 @@ class CFGrammar:
                             break
                     else:
                         break
-        """reflexive transitive closure"""
+        """reflexive tansitive closure"""
         for i in self.ntr[s]:
              if not self.rules[i][1]:
                  continue
@@ -667,7 +657,7 @@ class LRtable:
         @param cfgr: a context-free grammar
         @param operators: operators
         @param noconflicts: if 0 LRtable conflicts are not resolved,
-                   unless for special operator rules 
+                   unless for spcecial operator rules 
         @type noconflicts: integer
         @param expect: exact number of expected LR shift/reduce conflicts
         @type expect: integer
@@ -740,7 +730,7 @@ class LRtable:
 
     def add_action(self,i,a,action,j):
         """Set C{(action,j)} for state C{i} and symbol C{a} or  raise
-        conflict error. Conflicts are resolved using the following
+        conflict error. Conficts are resolved using the following
         rules:
            - shift/reduce: if precedence/assoc information is available
         try to use it; otherwise conflict is resolved in favor of shift
@@ -749,7 +739,7 @@ class LRtable:
         if self.ACTION.has_key((i,a)) and self.ACTION[(i,a)] != (action,j):
             action1 , j1 = self.ACTION[(i,a)]
             if _DEBUG:
-                print "LR conflict %s %s %s %s %s %s" %(action,j,action1,j1, i,a)
+                print "LRconflit %s %s %s %s %s %s" %(action,j,action1,j1, i,a)
             if action1 == 'shift' and action == 'reduce':
                 self.resolve_shift_reduce(i,a,j1,j)
             elif action == 'shift' and action1 == 'reduce':
@@ -901,7 +891,7 @@ class LR1table(LRtable):
     """
 
     def closure(self,items):
-        """The closure of a set of C{LR(1)} items C{I} is the set of items constructed
+        """The closure of a set of C{LR(1)} items C{I} is the set of items construted
         from I by the two rules:
             - every item of C{I} is in C{closure(I)}
     
@@ -1030,7 +1020,7 @@ class LALRtable1(LRtable):
     def items(self):
         """ An C{LALR(1)} item of a grammar C{G} is a production of
         C{G}with a dot at some position of the right hand side and a
-        list of terminals: is coded as a dictionary with key
+        list of terminals: is coded as a dictonary with key
         C{(rule_number,dot_position)} and value a set of terminals
         """
         i0 = {}
@@ -1075,7 +1065,7 @@ class LALRtable1(LRtable):
 
     
     def closure(self,items):
-        """The closure of a set of C{LR(1)} items I is the set of items constructed
+        """The closure of a set of C{LR(1)} items I is the set of items construted
         from I by the two rules:
            - every item of I is in closure(I)
     
@@ -1367,7 +1357,7 @@ class LRparser:
         @param operators:  precedence and associativity for operators
         @type operators: dictionary
         @param noconflicts: if 0 LRtable conflicts are not resolved,
-        unless special operator rules
+        unless spcecial operator rules
         @type noconflicts: integer
         @param expect: exact number of expected LR shift/reduce conflicts
         @type expect: integer
@@ -1530,7 +1520,7 @@ class LRparser:
          Transforms a string  into a grammar description
 
         @param st: is a string representing the grammar rules, with
-        default symbols as below. First rule for start.
+        default symbols as below. Fisrt rule for start.
 
         I{Example}::
              reg -> reg + reg E{lb}E{lb} self.OrSemRule   E{rb}E{rb}
@@ -1764,12 +1754,12 @@ class Yappy(LRparser):
             print """If it is Ok, set expect to the number of conflicts and build table again"""
 
     def  input(self,str=None,context={},lexer=0):
-        """ Reads from stdin or string and returns parsed result
+        """ Reads from stdin or string and retuns parsed result
 
             @param str: String to be parsed. If not given, reads from
             C{stdin}.
             @param context: some initial computational context
-            @param lexer: if 1 only lexical analysis is performed  
+            @param lexer: if 1 only lexical analisys is performed  
             
             @return: a tuple C{(parsed result,context)} or
             only the C{parsed result}
@@ -1986,7 +1976,7 @@ class Stack:
         return top
 
     def top(self):
-        """ Returns top of stack (not popping it)"""
+        """ Returns top of stack (not poping it)"""
         if not self.stack: 
             raise StackUnderflow()
         return self.stack[0]
