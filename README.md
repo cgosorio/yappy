@@ -20,3 +20,43 @@ sudo apt install python-yappy-doc
 This version has some small corrections, and who knows eventually I will find
 the time to change the code to make it compatible with Python 3.
 
+## The corrected error
+
+This is the portion of code with the error:
+```python
+ 486                      for k in range(len(r)-1): 
+ 487                          j = k + 1 
+ 488                          if r[k] in self.nonterminals and self.nullable[string.join(r[j:])]: 
+ 489                              if self.follow[r[k]].s_extend(self.follow[s]): 
+ 490                                  e = 1 
+ 491                              break 
+```
+
+The problem is the break at line 491, it should be indented an extra tab,
+within the if. The corrected code would be:
+```python
+ 486                      for k in range(len(r)-1): 
+ 487                          j = k + 1 
+ 488                          if r[k] in self.nonterminals and self.nullable[string.join(r[j:])]: 
+ 489                              if self.follow[r[k]].s_extend(self.follow[s]): 
+ 490                                  e = 1 
+ 491                                  break 
+```
+
+For example with this grammar:
+```
+S --> B C D A 
+A --> n A | ε 
+B --> t 
+C --> b D e | ε 
+D --> i E | ε 
+E --> S f | p 
+```
+
+Yappy calculates as FOLLOW(C) the set: {i, n}, but the correct
+FOLLOW(C) is {i, n, $, f}
+
+In this grammar the nullable symbols are A, C, and D, so from first
+production in FOLLOW(C) Yappy should have also included the FOLLOW(S)={$,f} since
+both D and A are nullable, and those two symbols are the ones missing in the
+original implementation.
