@@ -1757,11 +1757,31 @@ class Yappy(LRparser):
         else:
             sys.stderr.write("Directory %s do not exist\n" %table)
             sys.exit()
-        if (self.Log.noconflicts and ((self.Log.conflicts.has_key('sr') and
-                                 len(self.Log.conflicts['sr'])!=
-        self.Log.expect) or self.Log.conflicts.has_key('rr'))):
-            print "LR conflicts: number %s value %s" %(len(self.Log.conflicts['sr']),self.Log.conflicts)
-            print """If it is Ok, set expect to the number of conflicts and build table again"""
+        # CGO: This is another ERROR. I have changed it to avoid a
+        #   keyerror related to sr. All the condition below could be true
+        #   just having a Reduce-Reduce conflict, what makes true the test
+        #   self.Log.conflicts.has_key('rr'), but that does not mean that
+        #   there are Shif-Reduce conflicts, self.Log.conflicts['sr'] may
+        #   be nonexistent, so a keyerror could happen.
+        #   The exception can be launched using this grammar:
+        #     Yappy([],"A -> B C; B -> ; B -> A b; C -> ; C -> c; A -> a;")
+        #
+        # if (self.Log.noconflicts and
+        #         ((self.Log.conflicts.has_key('sr') and
+        #             len(self.Log.conflicts['sr'])!=self.Log.expect) or
+        #             self.Log.conflicts.has_key('rr'))):
+        #     print "LR conflicts: number %s value %s" %(len(self.Log.conflicts['sr']),self.Log.conflicts)
+        #     print """If it is Ok, set expect to the number of conflicts and build table again"""
+        if self.Log.noconflicts:
+            n_sr = len(self.Log.conflicts.get('sr', []))
+            n_rr = len(self.Log.conflicts.get('rr', []))
+            if n_sr + n_rr > self.Log.expect:
+                print "LR conflicts: number %s value %s" %(n_sr+n_rr,self.Log.conflicts)
+                print """If it is Ok, set expect to the number of conflicts and build table again"""
+        # CGO: FIXME, something is still wrong, with an input like:
+        #   parser=Yappy([],"S -> S a; S -> B; B -> b; B -> b B;")
+        # Yappy should detect a Shift-Reduce conflict, but it does not.
+        # Besides the tables seem incorrect.
 
     def  input(self,str=None,context={},lexer=0):
         """ Reads from stdin or string and returns parsed result
