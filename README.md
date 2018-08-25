@@ -17,10 +17,16 @@ And the documentation with:
 sudo apt install python-yappy-doc
 ```
 
-This version has some small corrections, and who knows eventually I will find
-the time to change the code to make it compatible with Python 3.
+Yappy is a project written by [Nelma Moreira](http://www.dcc.fc.up.pt/~nam/web/)
+and [Rogério Reis](http://www.dcc.fc.up.pt/~rvr/). More information about
+the parser can be found in the paper [Yappy Yet another LR(1) parser generator for Python](https://www.researchgate.net/publication/237445856_Yappy_Yet_another_LR1_parser_generator_for_Python).
 
-## The wrong indentation error
+The current implementation has some errors and although I have tried to inform 
+the authors about them, I have not get any answer yet, and the errors seem
+to be still present in the sources. This repository is just to
+post the corrections so other yappy users can benefit from them.
+
+## Error 1: wrong indentation
 
 This is the portion of code with the error:
 ```python
@@ -62,7 +68,7 @@ both D and A are nullable, and those two symbols are the ones missing in the
 original implementation.
 
 
-## The wrong condition error
+## Error 2: Wrong condition
 
 In the constructor for Yappy there is another error. The following condition
 is not well constructed:
