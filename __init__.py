@@ -1,3 +1,3 @@
-version="1.0"
+version = "1.0"
 
-__all__= ["parser","osets"]
+__all__ = ["parser", "osets"]

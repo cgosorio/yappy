@@ -25,6 +25,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
          (small changes by César García Osorio cgosorio@ubu.es)
 """
 
+
 class Set(object):
     """ Sets: that is lists without order or repetition.
 
@@ -33,7 +34,7 @@ class Set(object):
         new_list = []
         if a_list:
             for item in a_list:
-                if not item in new_list:
+                if item not in new_list:
                     new_list.append(item)
         self.members = new_list
 
@@ -49,7 +50,7 @@ class Set(object):
     def __add__(self, other):
         new = Set(self.members[:])
         for val in other:
-            if not val in new:
+            if val not in new:
                 new.append(val)
         return new
 
@@ -81,7 +82,7 @@ class Set(object):
         return str(self.members)
 
     def __repr__(self):
-        return "Set %s"%str(self.members)
+        return "Set %s" % str(self.members)
 
     def __getslice__(self, low, high):
         return Set(self.members[low:high])
@@ -95,13 +96,13 @@ class Set(object):
 
     def append(self, member):
         "Append an element if it not already in the set"
-        if not member in self.members:
+        if member not in self.members:
             self.members.append(member)
 
     def s_append(self, member):
         "Append an element if it not already in the set, returning 1 if appended"
         exit_value = 0
-        if not member in self.members:
+        if member not in self.members:
             self.members.append(member)
             exit_value = 1
         return exit_value
@@ -114,7 +115,7 @@ class Set(object):
         "Extend set and return 1 if extended"
         exit_value = 0
         for val in other:
-            if not val in self:
+            if val not in self:
                 self.members.append(val)
                 exit_value = 1
         return exit_value
