@@ -8,7 +8,7 @@ LR(1) and LALR(1) tables. Tables are kept in Python shelves for use
 in parsing.  Some ambiguous grammars can be handled if priority
 and associativity information is provided.
 
-It can be installed on a linux box with:
+_The original buggy version_ can be installed on a linux box with:
 ```bash
 sudo apt install python-yappy
 ```
@@ -17,6 +17,8 @@ And the documentation with:
 ```bash
 sudo apt install python-yappy-doc
 ```
+
+To use this corrected version, clone this repository.
 
 Yappy is a project written by [Nelma Moreira](http://www.dcc.fc.up.pt/~nam/)
 and [Rogério Reis](http://www.dcc.fc.up.pt/~rvr/). More information about
