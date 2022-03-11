@@ -18,7 +18,7 @@ And the documentation with:
 sudo apt install python-yappy-doc
 ```
 
-Yappy is a project written by [Nelma Moreira](http://www.dcc.fc.up.pt/~nam/web/)
+Yappy is a project written by [Nelma Moreira](http://www.dcc.fc.up.pt/~nam/)
 and [Rogério Reis](http://www.dcc.fc.up.pt/~rvr/). More information about
 the parser can be found in the paper [Yappy Yet another LR(1) parser generator for Python](https://www.researchgate.net/publication/237445856_Yappy_Yet_another_LR1_parser_generator_for_Python).
 
