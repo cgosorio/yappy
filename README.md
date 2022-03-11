@@ -1,4 +1,5 @@
 # yappy
+
 Yet Another Parser Generator for Python.
 
 Yappy provides a lexical analyser and a LR parser generator
@@ -21,10 +22,14 @@ Yappy is a project written by [Nelma Moreira](http://www.dcc.fc.up.pt/~nam/web/)
 and [Rogério Reis](http://www.dcc.fc.up.pt/~rvr/). More information about
 the parser can be found in the paper [Yappy Yet another LR(1) parser generator for Python](https://www.researchgate.net/publication/237445856_Yappy_Yet_another_LR1_parser_generator_for_Python).
 
-The current implementation has some errors and although I have tried to inform 
+The available implementation had some errors and although I have tried to inform 
 the authors about them, I have not get any answer yet, and the errors seem
-to be still present in the sources. This repository is just to
+to be still present in the sources.
+
+This repository is just to
 post the corrections so other yappy users can benefit from them.
+
+Also, **now the code works with Python3!**.
 
 ## Error 1: wrong indentation
 

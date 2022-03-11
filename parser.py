@@ -27,6 +27,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 @author: Rogério Reis & Nelma Moreira {rvr,nam}@ncc.up.pt
+         (several changes by César García Osorio cgosorio@ubu.es)
+
 
 @var _DEBUG: if nonzero, display information during parser generation
  or parsing.
@@ -36,21 +38,19 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 from types import *
 import re
-import string
+import string  # Delete this?
 import sys
-import copy
-import time
-import operator
 
 import os
 import os.path
 
 import shelve
-import anydbm
-import whichdb
+import dbm
 
 # set elements are mutable objects; we cannot use sets
-import osets
+import yappy.osets as osets
+# from . import osets
+
 
 # Globals
 
@@ -77,7 +77,7 @@ class Lexer:
         must appear after the larger keyword for the obvious
         reasons...
 
-        @param rules_list: contains pairs C{(re,funct,op?)} where:
+        @param rules_list: contains pairs C{(re, funct, op?)} where:
 
         C{re}: is an uncompiled python regular expression
 
@@ -107,17 +107,17 @@ class Lexer:
                 raise LexicalRulesErrorRE(rex, rnumber)
             try:
                 op, prec, assoc = r[2]
-                if not self.__dict__.has_key("operators"):
+                if "operators" not in self.__dict__:
                     self.operators = {}
-                if not self.operators.has_key(op):
+                if op not in self.operators:
                     self.operators[op] = (prec, assoc)
             except IndexError:
                 pass
             self.rules.append((rec, funct))
 
             rnumber = rnumber + 1
-        if _DEBUG and self.__dict__.has_key("operators"):
-            print "operators %s " % self.operators
+        if _DEBUG and "operators" in self.__dict__:
+            print("operators %s " % self.operators)
 
     def scan(self, string):
         """Performs the lexical analysis on C{string}
@@ -140,7 +140,7 @@ class Lexer:
         fun = rule[1]
         st1 = []
         for s in st:
-            if not isinstance(s, StringType):
+            if not isinstance(s, str):
                 st1.append(s)
             else:
                 s1 = s
@@ -156,7 +156,7 @@ class Lexer:
                         #     st1.append(("", s1[m.start():m.end()]))
                         # else:
                         if fun != "":
-                            st1.append(apply(fun, [s1[m.start():m.end()]]))
+                            st1.append(fun(*[s1[m.start():m.end()]]))
                         if m.end() == len(s1):
                             break
                         else:
@@ -169,7 +169,7 @@ class Lexer:
         Unknown parts will be of the form ("@UNK", string ) """
         st1 = []
         for s in st:
-            if isinstance(s, StringType):
+            if isinstance(s, str):
                 st1.append(("@UNK", s))
             else:
                 st1.append(s)
@@ -177,10 +177,10 @@ class Lexer:
 
     def readscan(self):
         """Scans a string read from stdin """
-        st = raw_input()
+        st = input()
         if not st:
             raise IOError
-        if isinstance(st, StringType):
+        if isinstance(st, str):
             s = self.scan(st)
             return s
 
@@ -334,7 +334,7 @@ class CFGrammar:
         self.ntr = {}
         i = 0
         for r in self.rules:
-            if not self.ntr.has_key(r[0]):
+            if r[0] not in self.ntr:
                 self.ntr[r[0]] = [i]
             else:
                 self.ntr[r[0]].append(i)
@@ -350,7 +350,7 @@ class CFGrammar:
         for n in range(len(self.rules)):
             lhs = self.rules[n][0]
             rhs = self.rules[n][1]
-            s = s + "%s | %s -> %s \n" % (n, lhs, string.join(rhs, " "))
+            s = s + "%s | %s -> %s \n" % (n, lhs, " ".join(rhs))
         return "Grammar Rules:\n\n%s" % s
 
     def makeFFN(self):
@@ -379,25 +379,28 @@ class CFGrammar:
         self.nullable = {}
         for s in self.terminals:
             self.nullable[s] = 0
+        # CGO: find the NTs with epsilon rules
         for s in self.nonterminals:
             self.nullable[s] = 0
-            if self.ntr.has_key(s):
+            if s in self.ntr:  # CGO: in case a NT has no productions
                 for i in self.ntr[s]:
-                    if not self.rules[i][1]:
+                    if not self.rules[i][1]:  # CGO: the rule has no rhs
                         self.nullable[s] = 1
                         break
-        k = 1
+        # CGO: find the rest of NTs which are nullable
+        k = 1  # CGO: k=1 <=> change=True
         while k == 1:
-            k = 0
-            for r in self.rules:
-                e = 0
-                for i in r[1]:
+            k = 0  # CGO: k=0 <=> change=False
+            for r in self.rules:  # CGO: for lhs,rhs,sact in self.rules:
+                e = 0  # CGO: rhsIsNotNullable=False 
+                for i in r[1]:  # CGO: for s in rhs:
                     if not self.nullable[i]:
-                        e = 1
+                        e = 1  # CGO: rhsIsNotNullable=True 
                         break
+                # if rhs is nullable and lhs is nor marked as nullable
                 if e == 0 and not self.nullable[r[0]]:
                     self.nullable[r[0]] = 1
-                    k = 1
+                    k = 1  # CGO: k=1 <=> change=True
 
     def FIRST(self, s):
         """C{FIRST(s)} is the set of terminals that begin the strings
@@ -410,9 +413,9 @@ class CFGrammar:
                 e = 1
                 break
         if e == 0:
-            self.nullable[string.join(s)] = 1
+            self.nullable[" ".join(s)] = 1
         else:
-            self.nullable[string.join(s)] = 0
+            self.nullable[" ".join(s)] = 0
         return first
 
     def FIRST_ONE(self):
@@ -421,10 +424,10 @@ class CFGrammar:
         self.first = {}
         self.nd = {}
         self.ms = Stack()
-        for s in self.terminals:
+        for s in self.terminals:  # CGO rule 1 for the first
             self.first[s] = osets.Set([s])
         for s in self.nonterminals:
-            if self.ntr.has_key(s) and not self.first.has_key(s):
+            if s in self.ntr and s not in self.first:
                 # self.FIRST_NT(s)
                 self.FIRST_TRA(s, 1)
 
@@ -446,9 +449,9 @@ class CFGrammar:
         for i in self.ntr[s]:
             for y in self.rules[i][1]:
                 if y in self.nonterminals:
-                    if not self.first.has_key(y):
+                    if y not in self.first:
                         self.FIRST_TRA(y, d+1)
-                    if self.nd.has_key(y) and self.nd[y] != -1:
+                    if y in self.nd and self.nd[y] != -1:
                         self.nd[s] = min(self.nd[s], self.nd[y])
                     self.first[s].s_extend(self.first[y])
                     if self.nullable[y]:
@@ -467,23 +470,23 @@ class CFGrammar:
 
     def FIRST_NT(self, s):
         """Recursively computes C{FIRST(X)} for a nonterminal  X"""
-        if not self.ntr.has_key(s):
+        if s not in self.ntr:
             return
         self.first[s] = osets.Set([])
-        for i in self.ntr[s]:
-            r = self.rules[i][1]
+        for i in self.ntr[s]: 
+            r = self.rules[i][1]  # CGO rhs = self.rules[i][1]
             if r == []:
-                self.nullable[s] = 1
+                self.nullable[s] = 1 
             else:
-                e = 1
-                for y in r:
+                e = 1  # CGO rhsIsNullable=True
+                for y in r:  # CGO for symbol in rhs 
                     if not self.first.has_key(y):
                         self.FIRST_NT(y)
                     self.first[s].s_extend(self.first[y])
                     if not self.nullable[y]:
-                        e = 0
+                        e = 0  # CGO rhsIsNullable=False
                         break
-                if e == 1:
+                if e == 1:  # CGO if rhsIsNullable:
                     self.nullable[s] = 1
 
     def FOLLOW(self):
@@ -491,36 +494,39 @@ class CFGrammar:
         terminals a that can appear immediately to the right of A in some
         sentential form."""
         self.follow = {}
-        self.follow[self.start] = osets.Set([self.endmark])
-        for rule in self.rules:
+        self.follow[self.start] = osets.Set([self.endmark])  # CGO rule 1
+        for rule in self.rules:  # CGO if X-> alp A bet, FIRST(bet) in FOLLOW(A)
             r = rule[1]
             for i in range(len(r)):
                 if r[i] in self.nonterminals:
-                    if not self.follow.has_key(r[i]):
+                    if r[i] not in self.follow:
                         self.follow[r[i]] = osets.Set([])
                     j = i + 1
+                    # CGO as a side effect of FIRST(r[j:]) from now on
+                    #     we know which r[j:] are nullables
                     self.follow[r[i]].s_extend(self.FIRST(r[j:]))
-        e = 1
-        while e:
-            e = 0
+        e = 1  # CGO anychanges=True      
+        while e:  # CGO while anychanges:
+            e = 0  # CGO anychanges=False
             for s in self.nonterminals:
                 for i in self.ntr[s]:
-                    r = self.rules[i][1]
-                    try:
+                    r = self.rules[i][1]  # CGO rhs = self.rules[i][1]
+                    try:  # CGO if A-> alp B, FOLLOW(A) in FOLLOW(B)
                         b = r[len(r)-1]
                         if (b in self.nonterminals and
                                 self.follow[b].s_extend(self.follow[s])):
-                            e = 1
+                            e = 1  # CGO anychanges=True 
                     except IndexError:
                         pass
                     except KeyError:
                         pass
                     for k in range(len(r)-1):
                         j = k + 1
+                        # CGO we know which r[j:] are nullables from before
                         if (r[k] in self.nonterminals and
-                                self.nullable[string.join(r[j:])]):
+                                self.nullable[" ".join(r[j:])]):
                             if self.follow[r[k]].s_extend(self.follow[s]):
-                                e = 1
+                                e = 1  # CGO anychanges=True 
                                 break  # CGO: This was an ERROR in Yappy.
                                        # It was incorrectly indented outside of
                                        # the if. As a consequence of this in a
@@ -541,7 +547,7 @@ class CFGrammar:
         self.nd = {}
         self.ms = Stack()
         for s in self.nonterminals:
-            if self.ntr.has_key(s) and not self.close_nt.has_key(s):
+            if s in self.ntr and s not in self.close_nt:
                 self.TRAVERSE(s, 1)
 
     def TRAVERSE(self, s, d):
@@ -558,12 +564,12 @@ class CFGrammar:
                 for j in range(len(r)):
                     if r[j+1:]:
                         f = self.FIRST(r[j+1:])
-                        ns = self.nullable[string.join(r[j+1:])]
+                        ns = self.nullable[" ".join(r[j+1:])]
                     else:
                         f = []
                         ns = 1
                     if r[j] in self.nonterminals:
-                        if not self.close_nt[s].has_key(r[j]):
+                        if r[j] not in self.close_nt[s]:
                             self.close_nt[s][r[j]] = osets.Set([[]])
                         if r[j+1:]:
                             self.close_nt[s][r[j]].append((f, ns))
@@ -579,14 +585,14 @@ class CFGrammar:
                 r = self.rules[i][1]
                 for j in range(len(r)):
                     f = self.FIRST(r[j+1:])
-                    ns = self.nullable[string.join(r[j+1:])]
+                    ns = self.nullable[" ".join(r[j+1:])]
                     if r[j] in self.nonterminals:
-                        if not self.close_nt.has_key(r[j]):
+                        if r[j] not in self.close_nt:
                             self.TRAVERSE(r[j], d+1)
-                        if self.nd.has_key(r[j]) and self.nd[r[j]] != -1:
+                        if r[j] in self.nd and self.nd[r[j]] != -1:
                             self.nd[s] = min(self.nd[s], self.nd[r[j]])
-                        for k in self.close_nt[r[j]].keys():
-                            if not self.close_nt[s].has_key(k):
+                        for k in list(self.close_nt[r[j]]):
+                            if k not in self.close_nt[s]:
                                 self.close_nt[s][k] = osets.Set([[]])
                             else:
                                 for v in self.close_nt[s][k]:
@@ -615,13 +621,13 @@ class CFGrammar:
         a such that C{s ->* ar}, for some C{r}"""
         self.derive_nt = {}
         for s in self.nonterminals:
-            if self.ntr.has_key(s) and not self.derive_nt.has_key(s):
+            if s in self.ntr and s not in self.derive_nt:
                 self.DERIVE_ONE_NT(s)
 
     def DERIVE_ONE_NT(self, s):
         """For nonterminal C{s} determines the set of nonterminals
         a such that C{s -> ar}, for some C{r} """
-        if not self.ntr.has_key(s):
+        if s not in self.ntr:
             return
         self.derive_nt[s] = {s: osets.Set([None])}
         for i in self.ntr[s]:
@@ -631,10 +637,10 @@ class CFGrammar:
                 r = self.rules[i][1]
                 for j in range(len(r)):
                     if r[j] in self.nonterminals:
-                        if not self.derive_nt.has_key(r[j]):
+                        if r[j] not in self.derive_nt:
                             self.DERIVE_ONE_NT(r[j])
-                        for k in self.derive_nt[r[j]].keys():
-                            if not self.derive_nt[s].has_key(k):
+                        for k in list(self.derive_nt[r[j]]):
+                            if k not in self.derive_nt[s]:
                                 self.derive_nt[s][k] = osets.Set([])
                             for p in self.derive_nt[r[j]][k]:
                                 if not p:
@@ -662,22 +668,22 @@ class CFGrammar:
                     for i in range(len(r)):
                         if r[i] in self.terminals:
                             if i < len(r) - 1:
-                                if self.derive_ter.has_key(r[i+1]):
-                                    if not self.derive_ter.has_key(s):
+                                if r[i+1] in self.derive_ter:
+                                    if s not in self.derive_ter:
                                         self.derive_ter[s] = osets.Set([])
                                     if self.derive_ter[s].s_append(r[i]):
                                         e = 1
                                 break
                             else:
-                                if not self.derive_ter.has_key(s):
+                                if s not in self.derive_ter:
                                     self.derive_ter[s] = osets.Set([])
                                 if self.derive_ter[s].s_append(r[i]):
                                     e = 1
                                 break
                         else:
                             """ non-terminal"""
-                            if self.derive_ter.has_key(r[i]):
-                                if not self.derive_ter.has_key(s):
+                            if r[i] in self.derive_ter:
+                                if s not in self.derive_ter:
                                     self.derive_ter[s] = osets.Set([])
                                 if self.derive_ter[s].s_extend(self.derive_ter[r[i]]) == 1:
                                     e = 1
@@ -719,7 +725,7 @@ class LRtable:
         All pairs C{(i, s)}  not in action and goto dictionaries are 'error'"""
         c = self.items()
         if _DEBUG:
-            print self.print_items(c)
+            print(self.print_items(c))
         self.ACTION = {}
         self.GOTO = {}
         # shelve not working with osets
@@ -734,7 +740,7 @@ class LRtable:
                         self.add_action(i, a, 'shift', j)
                     except IndexError:
                         if _DEBUG:
-                            print "no state"
+                            print("no state")
                 elif a == "":
                     """ Dot at right end """
                     l = self.gr.rules[item[0]][0]
@@ -763,13 +769,13 @@ class LRtable:
                 if self.operators:
                     self.gr.rules[i][1].reverse()
                     for s in self.gr.rules[i][1]:
-                        if self.operators.has_key(s):
+                        if s in self.operators:
                             self.precedence[i] = self.operators[s]
                             break
                     self.gr.rules[i][1].reverse()
 
         if _DEBUG:
-            print "Precedence %s" % self.precedence
+            print("Precedence %s" % self.precedence)
 
     def add_action(self, i, a, action, j):
         """Set C{(action, j)} for state C{i} and symbol C{a} or  raise
@@ -779,7 +785,7 @@ class LRtable:
         try to use it; otherwise conflict is resolved in favor of shift
            - reduce/reduce: choosing the production rule listed first
         """
-        if self.ACTION.has_key((i, a)) and self.ACTION[(i, a)] != (action, j):
+        if (i, a) in self.ACTION and self.ACTION[(i, a)] != (action, j):
             action1, j1 = self.ACTION[(i, a)]
             if _DEBUG:
                 print("LR conflict %s %s %s %s %s %s" %
@@ -809,32 +815,32 @@ class LRtable:
 
         """
         try:
-            if (self.operators and self.operators.has_key(a)
-                    and self.precedence.has_key(r) and self.precedence[r]):
+            if (self.operators and a in self.operators
+                    and r in self.precedence and self.precedence[r]):
                 prec_op, assoc_op = self.operators[a]
                 if ((self.precedence[r][0] > prec_op) or
                         (self.precedence[r][0] == prec_op and
-                        self.precedence[r][1] == 'left')):
+                         self.precedence[r][1] == 'left')):
                     self.ACTION[(i, a)] = ('reduce', r)
                     if _DEBUG:
-                        print "solved reduce %s" % r
+                        print("solved reduce %s" % r)
                 else:
                     self.ACTION[(i, a)] = ('shift', s)
                     if _DEBUG:
-                        print "solved shift %s" % s
+                        print("solved shift %s" % s)
             else:
                 self.ACTION[(i, a)] = ('shift', s)
                 if _DEBUG:
-                    print "solved shift %s" % s
+                    print("solved shift %s" % s)
         except (AttributeError, TypeError, KeyError, NameError):
             if self.Log.noconflicts:
                 # choose to shift
                 self.ACTION[(i, a)] = ('shift', s)
                 if _DEBUG:
-                    print "choose shift %s for action (%s, %s)" % (s, i, a)
+                    print("choose shift %s for action (%s, %s)" % (s, i, a))
                 self.Log.add_conflict('sr', i, a, s, r)
                 if _DEBUG:
-                    print " %s for action (%s,%s)" % (self.Log.conflicts, i, a)
+                    print(" %s for action (%s,%s)" % (self.Log.conflicts, i, a))
             else:
                 raise LRConflictError(i, a)
 
@@ -870,7 +876,7 @@ class SLRtable(LRtable):
             for i in close:
                 s = self.NextToDot(i)
                 if (s in self.gr.nonterminals and added[s] == 0
-                        and self.gr.ntr.has_key(s)):
+                        and s in self.gr.ntr):
                     for n in self.gr.ntr[s]:
                         close.append((n, 0))
                     added[s] = 1
@@ -896,17 +902,20 @@ class SLRtable(LRtable):
 
             @return: a set of sets of items
         """
+        # CGO this is why changing the order of the extra rule does not work
+        # CGO Initialization of Set(0)
         c = osets.Set([self.closure(osets.Set([(len(self.gr.rules) - 1, 0)]))])
         symbols = self.gr.terminals + self.gr.nonterminals
-        e = 1
-        while e:
-            e = 0
+        # CGO I will add this in the future: symbols = self.getSymbols()
+        e = 1  # CGO newSetOfItemsAdded=True
+        while e:  # CGO while newSetOfItemsAdded:
+            e = 0  # CGO newSetOfItemsAdded=False
             for i in c:
                 for s in symbols:
                     valid = self.goto(i, s)
                     if valid != [] and valid not in c:
                         c.append(valid)
-                        e = 1
+                        e = 1  # CGO newSetOfItemsAdded=True
         return c
 
     def print_items(self, c):
@@ -920,8 +929,8 @@ class SLRtable(LRtable):
                 lhs = self.gr.rules[r][0]
                 rhs = self.gr.rules[r][1]
                 s = s + ("\t %s -> %s . %s \n" %
-                         (lhs, string.join(rhs[:p], " "),
-                          string.join(rhs[p:], " ")))
+                         (lhs, " ".join(rhs[:p]),
+                          " ".join(rhs[p:])))
             j += 1
         return s
 
@@ -959,7 +968,7 @@ class LR1table(LRtable):
             for i in close:
                 s = self.NextToDot(i)
                 sa = self.gr.FIRST(self.AfterDot(i))
-                if s in self.gr.nonterminals and self.gr.ntr.has_key(s):
+                if s in self.gr.nonterminals and s in self.gr.ntr:
                     for n in self.gr.ntr[s]:
                         for b in sa:
                            e = close.append((n, 0, b))
@@ -982,18 +991,21 @@ class LR1table(LRtable):
             (rule_number, dot_position, terminal)
             (aho86:_compil page 231)
         """
+        # CGO this is why changing the order of the extra rule does not work
+        # CGO Initialization of Set(0)
         c = osets.Set([self.closure(osets.Set([(len(self.gr.rules) - 1, 0,
                                                self.gr.endmark)]))])
         symbols = self.gr.terminals + self.gr.nonterminals
-        e = 1
-        while e:
-            e = 0
+        # CGO I will add this: symbols = self.getSymbols()
+        e = 1  # CGO newSetOfItemsAdded=True
+        while e:  # CGO while newSetOfItemsAdded:
+            e = 0  # CGO newSetOfItemsAdded=False
             for i in c:
                 for s in symbols:
                     valid = self.goto(i, s)
                     if valid != []:
-                        if c.s_append(valid):
-                            e = 1
+                        if c.s_append(valid):  # CGO s_appends only adds it if not existent
+                            e = 1  # CGO newSetOfItemsAdded=True
         return c
 
     def print_items(self, c):
@@ -1007,10 +1019,10 @@ class LR1table(LRtable):
                 lhs = self.gr.rules[r][0]
                 rhs = self.gr.rules[r][1]
                 s = s + ("\t %s -> %s . %s , %s\n" %
-                         (lhs, string.join(rhs[:p], " "),
-                          string.join(rhs[p:], " "), t))
+                         (lhs, " ".join(rhs[:p]),
+                          " ".join(rhs[p:]), t))
             j += 1
-        print s
+        print(s)
         return s
 
     def NextToDot(self, item):
@@ -1046,13 +1058,13 @@ class LALRtable1(LRtable):
         self.gr.DERIVE_NT()
         c = self.items()
         if _DEBUG:
-            print self.print_items(c)
+            print(self.print_items(c))
         self.ACTION = {}
         self.GOTO = {}
         # shelve not working with osets
         # self.Log.items = c
         for i in range(len(c)):
-            for item in c[i].keys():
+            for item in list(c[i]):
                 a = self.NextToDot(item)
                 if a in self.gr.terminals:
                     state = self.goto(c[i], a)
@@ -1098,14 +1110,14 @@ class LALRtable1(LRtable):
         j = 0
         for i in range(len(c)):
                 s = s + "I_%d: \n" % i
-                for item in c[i].keys():
+                for item in list(c[i]):
                     r, p = item
                     lhs = self.gr.rules[r][0]
                     rhs = self.gr.rules[r][1]
                     s = s + ("\t %s -> %s . %s, %s \n" %
-                             (lhs, string.join(rhs[:p], " "),
-                              string.join(rhs[p:], " "), c[i][item]))
-        print s
+                             (lhs, " ".join(rhs[:p]),
+                              " ".join(rhs[p:]), c[i][item]))
+        print(s)
         return s
 
     def goto(self, items, s):
@@ -1113,9 +1125,9 @@ class LALRtable1(LRtable):
         is the closure of the set of all items C{(A -> sX.r, a)} such that
         C{(A -> s.Xr, a)} in C{I}"""
         valid = {}
-        for (n, i) in items.keys():
+        for (n, i) in list(items):
             if self.NextToDot((n, i)) == s:
-                if not valid.has_key((n, i+1)):
+                if (n, i+1) not in valid:
                     valid[(n, i + 1)] = osets.Set([])
                 for t in items[(n, i)]:
                     valid[(n, i + 1)].append(t)
@@ -1131,12 +1143,12 @@ class LALRtable1(LRtable):
         e = 1
         while e:
             e = 0
-            for i in items.keys():
+            for i in list(items):
                 s = self.NextToDot(i)
-                if s in self.gr.nonterminals and self.gr.ntr.has_key(s):
+                if s in self.gr.nonterminals and s in self.gr.ntr:
                     l = self.AfterDot(i, items)
                     for n in self.gr.ntr[s]:
-                        if not items.has_key((n, 0)):
+                        if (n, 0) not in items:
                             items[(n, 0)] = osets.Set([])
                         if items[(n, 0)].s_extend(l) == 1:
                             e = 1
@@ -1157,7 +1169,7 @@ class LALRtable1(LRtable):
         for i in c:
             if i.keys() == j.keys():
                 e = 0
-                for k in j.keys():
+                for k in list(j):
                     if i[k].s_extend(j[k]) == 1:
                         e = 1
                 break
@@ -1203,7 +1215,7 @@ class LALRtable(LALRtable1):
         self.gr.TransClose()
         c = self.items()
         if _DEBUG:
-            print self.print_items(c)
+            print(self.print_items(c))
         """ make action[i, X] and goto[i, X]
         all pairs (i, s)  not in action and goto dictionaries are 'error' """
         self.ACTION = {}
@@ -1211,26 +1223,26 @@ class LALRtable(LALRtable1):
         # shelve not working with osets
         # self.Log.items = c
         for i in range(len(c)):
-            for item in c[i].keys():
+            for item in list(c[i]):
                 C = self.NextToDot(item)
                 if C in self.gr.nonterminals:
-                    if self.gr.derive_ter.has_key(C):
+                    if C in self.gr.derive_ter:
                         for a in self.gr.derive_ter[C]:
-                            if self.goto_ref.has_key((i, a)):
+                            if (i, a) in self.goto_ref:
                                 j = self.goto_ref[(i, a)]
                                 self.add_action(i, a, 'shift', j)
-                    if self.gr.close_nt.has_key(C):
-                        for A in self.gr.close_nt[C].keys():
+                    if C in self.gr.close_nt:
+                        for A in list(self.gr.close_nt[C]):
                             """Error: ignores end string s in C->*As"""
                             for p in self.gr.close_nt[C][A]:
                                 r = self.AfterDotTer(item, c[i], p)
-                                if self.gr.ntr.has_key(A):
+                                if A in self.gr.ntr:
                                     for k in self.gr.ntr[A]:
                                         if self.gr.rules[k][1] == []:
                                             for a in r:
                                                 self.add_action(i, a, 'reduce', k)
                 elif C in self.gr.terminals:
-                    if self.goto_ref.has_key((i, C)):
+                    if (i, C) in self.goto_ref:
                         j = self.goto_ref[(i, C)]
                         self.add_action(i, C, 'shift', j)
                 else:
@@ -1277,13 +1289,13 @@ class LALRtable(LALRtable1):
         for k in c:
             nk = c.index(k)
             lh[nk] = {}  # osets.Set([])
-            for (n, i) in k.keys():
+            for (n, i) in list(k):
                 lh[nk][(n, i)] = osets.Set([])
                 j = {}
                 j[(n, i)] = osets.Set([(self.gr.dummy)])
                 j = self.closure(j)
                 for s in symbols:
-                    for (m1, j1) in j.keys():
+                    for (m1, j1) in list(j):
                         if self.NextToDot((m1, j1)) == s:
                             for a in j[(m1, j1)]:
                                 if a == self.gr.dummy:
@@ -1298,7 +1310,7 @@ class LALRtable(LALRtable1):
             e = 0
             for k in c:
                 nk = c.index(k)
-                for (n, i) in k.keys():
+                for (n, i) in list(k):
                     for (m, n1, i1) in lh[nk][(n, i)]:
                         if c[m][(n1, i1)].s_extend(k[(n, i)]) == 1:
                             e = 1
@@ -1309,14 +1321,14 @@ class LALRtable(LALRtable1):
             grammar symbol is the closure of the set of all items (A
             -> sX.r, a) such that (A -> s.Xr, a) is in I"""
         valid = {}
-        for (n, i) in items.keys():
+        for (n, i) in list(items):
             x = self.NextToDot((n, i))
             if x == s:
-                if not valid.has_key((n, i+1)):
+                if (n, i+1) not in valid:
                     valid[(n, i + 1)] = osets.Set([])
-            if self.gr.close_nt.has_key(x):
-                for a in self.gr.close_nt[x].keys():
-                    if self.gr.ntr.has_key(a):
+            if x in self.gr.close_nt:
+                for a in list(self.gr.close_nt[x]):
+                    if a in self.gr.ntr:
                         for k in self.gr.ntr[a]:
                             if (self.gr.rules[k][1] != []
                                     and self.gr.rules[k][1][0] == s):
@@ -1343,7 +1355,7 @@ class LALRtable(LALRtable1):
         l, i = item
         try:
             f = self.gr.FIRST(self.gr.rules[l][1][i+1:])
-            ns = self.gr.nullable[string.join(self.gr.rules[l][1][i+1:])]
+            ns = self.gr.nullable[" ".join(self.gr.rules[l][1][i+1:])]
         except IndexError:
             f = []
             ns = 1
@@ -1428,17 +1440,19 @@ class LRparser:
         self.terminals = self.cfgr.terminals
         self.nonterminals = self.cfgr.nonterminals
         self.endmark = self.cfgr.endmark
-        if args.has_key('nosemrules'):
-            self.nosemrules=args['nosemrules']
+        if 'nosemrules' in args:
+            self.nosemrules = args['nosemrules']
         else:
             self.nosemrules = 0
-        db = whichdb.whichdb(table_shelve)
-        if not(db == None or db == "" or no_table == 0):
+        db = dbm.whichdb(table_shelve)
+        # CGO FIXME - it would be interesting to check that the pre-existent
+        #             action and goto tables are for the current grammar.
+        if not(db is None or db == "" or no_table == 0):
             try:
                 d = shelve.open(table_shelve, 'w')
                 self.ACTION = d['action']
                 self.GOTO = d['goto']
-                if d.has_key('version'):
+                if 'version' in d:
                     if d['version'] < _Version:
                         raise TableError(table_shelve)
                 try:
@@ -1463,7 +1477,7 @@ class LRparser:
     def __str__(self):
         """@return: the LR parsing table showing for each state the
         action and goto function """
-        l = (map(lambda x: x[0], self.ACTION.keys()))
+        l = [x[0] for x in self.ACTION]
         l.sort()
         a1 = "\nState\n"
         if len(self.terminals) < 20:
@@ -1472,7 +1486,7 @@ class LRparser:
             for i in osets.Set(l):
                 a3 = "\n%s" % i
                 for a in self.terminals:
-                    if self.ACTION.has_key((i, a)):
+                    if (i, a) in self.ACTION:
                         if self.ACTION[i, a][0] == "shift":
                             x = "s"
                         else:
@@ -1487,7 +1501,7 @@ class LRparser:
             for i in osets.Set(l):
                 a3 = "%s\n" % i
                 for a in self.terminals:
-                    if self.ACTION.has_key((i, a)):
+                    if (i, a) in self.ACTION:
                         if self.ACTION[i, a][0] == "shift":
                             x = "s"
                         else:
@@ -1495,7 +1509,7 @@ class LRparser:
                         a3 = a3 + "%s = %s%s\n" % (a, x, self.ACTION[i, a][1])
                 a1 = "%s%s" % (a1, a3)
             ac = a1
-        l = (map(lambda x: x[0], self.GOTO.keys()))
+        l = [x[0] for x in self.GOTO]
         l.sort()
         a1 = "\nState\n"
         if len(self.nonterminals) < 20:
@@ -1504,7 +1518,7 @@ class LRparser:
             for i in osets.Set(l):
                 a3 = "\n%s" % i
                 for a in self.nonterminals:
-                    if self.GOTO.has_key((i, a)):
+                    if (i, a) in self.GOTO:
                         a2 = "\t%s" % self.GOTO[(i, a)]
                     else:
                         a2 = "\t"
@@ -1514,7 +1528,7 @@ class LRparser:
             for i in osets.Set(l):
                 a3 = "%s\n" % i
                 for a in self.nonterminals:
-                    if self.GOTO.has_key((i, a)):
+                    if (i, a) in self.GOTO:
                         a3 = a3 + "%s = %s\n" % (a, self.GOTO[(i, a)])
                 a1 = "%s%s" % (a1, a3)
         go = a1
@@ -1538,25 +1552,29 @@ class LRparser:
             s = self.stack.top()[0]
             a = self.tokens[self.ip][0]
             if _DEBUG:
-                print "Input: %s\nState: %s" % (map(lambda x: x[0], self.tokens[self.ip:]), s)
-                print "Stack: %s" % self.stack
+                print("Input: %s\nState: %s" %
+                      ([x[0] for x in self.tokens[self.ip:]], s))
+                print("Stack: %s" % self.stack)
             try:
                 if self.ACTION[s, a][0] == 'shift':
                     if _DEBUG:
-                        print "Action: shift\n"
-                    self.stack.push((self.ACTION[s, a][1], self.tokens[self.ip][1]))
+                        print("Action: shift\n")
+                    self.stack.push((self.ACTION[s, a][1],
+                                     self.tokens[self.ip][1]))
                     self.ip = self.ip + 1
                 elif self.ACTION[s, a][0] == 'reduce':
                     n = self.ACTION[s, a][1]
                     if _DEBUG:
                         print("Action: reduce %s %s\n" %
                               (n, str(self.rules[n])))
-                    semargs = [self.stack.pop()[1] for i in range(len(self.rules[n][1]))]
+                    semargs = [self.stack.pop()[1]
+                               for i in range(len(self.rules[n][1]))]
                     semargs.reverse()
                     if self.nosemrules:
                         reduce = []
                     else:
-                        reduce = Reduction(self.rules[n][2], semargs, self.context)
+                        reduce = Reduction(self.rules[n][2],
+                                           semargs, self.context)
                     del semargs
                     s1 = self.stack.top()[0]
                     a = self.rules[n][0]
@@ -1568,11 +1586,11 @@ class LRparser:
                     raise LRParserError(s, a)
             except KeyError:
                 if _DEBUG:
-                    print "Error in action: %s" % self.ACTION
+                    print("Error in action: %s" % self.ACTION)
                 raise LRParserError(s, a)
-            except SemanticError, m:
+            except SemanticError as m:
                 if _DEBUG:
-                    print "Semantic Rule %d %s" % (n, self.rules[n][2])
+                    print("Semantic Rule %d %s" % (n, self.rules[n][2]))
                 raise SemanticError(m, n, self.rules[n][2])
         return self.stack.top()[1]
 
@@ -1628,7 +1646,7 @@ class LRparser:
                        rulesep='|',
                        ruleend=';')
         gr = []
-        rl = string.split(rulestr, sym['ruleend'])
+        rl = str.split(rulestr, sym['ruleend'])
         for l in rl:
             m = re.compile(sym['rulesym']).search(l)
             if not m:
@@ -1641,38 +1659,40 @@ class LRparser:
                 if m.end() == len(l):
                     raise GrammarError(l)
                 else:
-                    rhss = string.strip(l[m.end():])
+                    rhss = str.strip(l[m.end():])
                     if rhss == "[]":
                         rhs = []
                         sem = EmptySemRule
                         op = None
                     else:
-                        rhss = string.split(l[m.end():], sym['rulesep'])
+                        rhss = str.split(l[m.end():], sym['rulesep'])
                         for rest in rhss:
-                            rest = string.strip(rest)
+                            rest = str.strip(rest)
                             if rhss == "[]":
                                 rhs = []
                                 sem = EmptySemRule
                                 op = None
                             else:
-                                m = re.search(sym['semsym']+'(?P<opsem>.*)'+sym['csemsym'], rest)
+                                m = re.search(sym['semsym']+'(?P<opsem>.*)'
+                                              + sym['csemsym'], rest)
                                 if not m:
-                                    rhs = string.split(rest, None)
+                                    rhs = str.split(rest, None)
                                     sem = DefaultSemRule
                                     op = None
                                 else:
                                     if m.start() == 0:
                                         raise GrammarError(rest)
                                     else:
-                                        rhs = string.split(rest[0:m.start()].strip())
+                                        rhs = str.split(rest[0:m.start()].strip())
                                     if m.group('opsem'):
-                                        opsem = string.split(m.group('opsem'), sym['opsym'])
+                                        opsem = str.split(m.group('opsem'),
+                                                          sym['opsym'])
                                         if len(opsem) == 1:
-                                            sem = string.strip(opsem[0])
+                                            sem = str.strip(opsem[0])
                                             op = None
                                         elif len(opsem) == 2:
-                                            sem = string.strip(opsem[0])
-                                            op = string.strip(opsem[1])
+                                            sem = str.strip(opsem[0])
+                                            op = str.strip(opsem[1])
                                         else:
                                             raise GrammarError(rest)
                                     else:
@@ -1706,7 +1726,7 @@ class LRBuildparser:
         while 1:
             s = self.stack.top()
             a = self.input[self.ip]
-            if not self.table.ACTION.has_key((s, a)):
+            if (s, a) not in self.table.ACTION:
                 raise LRParserError(s, a)
             elif self.table.ACTION[s, a][0] == 'shift':
                 # self.stack.push(a)
@@ -1719,7 +1739,7 @@ class LRBuildparser:
                 s1 = self.stack.top()
                 a = self.table.gr.rules[n][0]
                 #                self.stack.push(a)
-                if not self.table.GOTO.has_key((s1, a)):
+                if (s1, a) not in self.table.GOTO:
                     raise LRParserError(s1, a)
                 else:
                     self.stack.push(self.table.GOTO[s1, a])
@@ -1730,7 +1750,7 @@ class LRBuildparser:
                 raise LRParserError()
 
 
-############# Auxiliares  ##################
+# ############ Auxiliares  ##################
 def Dict(**entries):
     """Create a dict out of the argument=value arguments"""
     return entries
@@ -1752,7 +1772,7 @@ def grules(rules_list, rulesym="->", rhssep=None):
     gr = []
     sep = re.compile(rulesym)
     for r in rules_list:
-        if type(r) is StringType:
+        if isinstance(r, str):
             rule = r
         else:
             rule = r[0]
@@ -1767,12 +1787,12 @@ def grules(rules_list, rulesym="->", rhssep=None):
             if m.end() == len(rule):
                 raise GrammarError(rule)
             else:
-                rest = string.strip(rule[m.end():])
+                rest = str.strip(rule[m.end():])
                 if rest == "[]":
                     rhs = []
                 else:
-                    rhs = string.split(rest, rhssep)
-        if type(r) is StringType:
+                    rhs = str.split(rest, rhssep)
+        if isinstance(r, str):
             gr.append((lhs, rhs, DefaultSemRule))
         elif len(r) == 3:
             gr.append((lhs, rhs, r[1], r[2]))
@@ -1806,11 +1826,11 @@ class Yappy(LRparser):
          - key  C{nosemrules} if 1 semantic actions are not applied"""
         self.lex = Lexer(tokenize)
         operators = None
-        if self.lex.__dict__.has_key("operators"):
+        if "operators" in self.lex.__dict__:
             operators = self.lex.operators
-        if type(grammar) is StringType:
+        if isinstance(grammar, str):
             grammar = self.parse_grammar(grammar, {'locals': locals()}, args)
-        if args.has_key('usrdir') and os.path.isdir(args['usrdir']):
+        if 'usrdir' in args and os.path.isdir(args['usrdir']):
             table = string.rstrip(args['usrdir']) + '/' + table
         if (os.path.dirname(table) == ""
                 or os.path.exists(os.path.dirname(table))):
@@ -1822,26 +1842,26 @@ class Yappy(LRparser):
         # CGO: This is another ERROR. I have changed it to avoid a
         #   keyerror related to sr. All the condition bellow could be true
         #   just having a Reduce-Reduce conflict, what makes true the test
-        #   self.Log.conflicts.has_key('rr'), but that does not mean that
+        #   'rr' in self.Log.conflicts, but that does not mean that
         #   there are Shif-Reduce conflicts, self.Log.conflicts['sr'] may
         #   be nonexistent, so a keyerror could happen.
         #   The exception can be launched using this grammar:
         #     Yappy([], "A -> B C; B -> ; B -> A b; C -> ; C -> c; A -> a;")
         #
         # if (self.Log.noconflicts and
-        #         ((self.Log.conflicts.has_key('sr') and
+        #         (('sr' in self.Log.conflicts and
         #             len(self.Log.conflicts['sr'])!=self.Log.expect) or
-        #             self.Log.conflicts.has_key('rr'))):
+        #             'rr' in self.Log.conflicts)):
         #     print("LR conflicts: number %s value %s" %
         #           (len(self.Log.conflicts['sr']), self.Log.conflicts))
-        #     print """If it is Ok, set expect to the number of conflicts and build table again"""
+        #     print("""If it is Ok, set expect to the number of conflicts and build table again""")
         if self.Log.noconflicts:
             n_sr = len(self.Log.conflicts.get('sr', []))
             n_rr = len(self.Log.conflicts.get('rr', []))
             if n_sr + n_rr > self.Log.expect:
                 print("LR conflicts: number %s value %s" %
                       (n_sr+n_rr, self.Log.conflicts))
-                print """If it is Ok, set expect to the number of conflicts and build table again"""
+                print("""If it is Ok, set expect to the number of conflicts and build table again""")
         # CGO: FIXME, something is still wrong, with an input like:
         #   parser=Yappy([], "S -> S a; S -> B; B -> b; B -> b B;")
         # Yappy should detect a Shift-Reduce conflict, but it does not.
@@ -1862,7 +1882,7 @@ class Yappy(LRparser):
         if str:
             self.tokens = self.lex.scan(str)
         else:
-            print "Input:  ",
+            print("Input:  ", end=' ')
             self.tokens = self.lex.readscan()
         if lexer:
             return self.tokens
@@ -1886,7 +1906,7 @@ class Yappy(LRparser):
         pass
 
 
-######### Semantic Grammar Rules ##############
+# ######## Semantic Grammar Rules ##############
 def expandSemRule(strargs, strfun):
     regargs = re.compile(r'\$(\d+)')
     matchargs = regargs.finditer(strfun)
@@ -1904,14 +1924,14 @@ def Reduction(fun, sargs, context={}):
 
     """
     if callable(fun):
-        return apply(fun, [sargs, context])
-    elif type(fun) is StringType:
+        return fun(*[sargs, context])
+    elif isinstance(fun, str):
         a = expandSemRule("sargs[", fun)
         l = context.get('locals', {})
         l.update(locals())
         return eval(a, context.get('globals', {}), l)
     else:
-        raise SemanticError, 'Wrong type: %s' % fun
+        raise SemanticError('Wrong type: %s' % fun)
 
 
 def DefaultSemRule(sargs, context={}):
@@ -1923,10 +1943,11 @@ def EmptySemRule(sargs, context={}):
     return []
 
 
-######Parser f, grammars ##################
+# #####Parser f, grammars ##################
 class Yappy_grammar(Yappy):
     """ A parser for grammar rules. See C{test()} for an example. """
-    def __init__(self, no_table=1, table='yappypar.tab',tabletype=LR1table, **args):
+    def __init__(self, no_table=1, table='yappypar.tab',
+                 tabletype=LR1table, **args):
         grammar = grules([
             ("G -> RULE G", self.GRule),
             ("G -> []", EmptySemRule),
@@ -1946,16 +1967,16 @@ class Yappy_grammar(Yappy):
             ("OPV ->  ID  ID ", self.OPVRule)
         ])
         tokenize = [
-                    ("\{\{.*\}\}", lambda x: ("IDS", string.strip(x[2:-2]))),
-                    ("\s+", ""),
+                    (r"\{\{.*\}\}", lambda x: ("IDS", str.strip(x[2:-2]))),
+                    (r"\s+", ""),
                     ("->", lambda x: ("rulesym", x)),
-                    ("\|", lambda x: ("rulesep", x)),
+                    (r"\|", lambda x: ("rulesep", x)),
                     (";", lambda x: ("ruleend", x)),
                     # ("}}", lambda x: ("csemsym", x)),
                     # ("{{", lambda x: ("semsym", x)),
                     ("//", lambda x: ("opsym", x)),
                     (".*", lambda x: ("ID", x))]
-        if args.has_key('tmpdir'):
+        if 'tmpdir' in args:
             args1 = {'usrdir': string.rstrip(args['tmpdir'], '/')}
         else:
             args1 = {}
@@ -2008,19 +2029,19 @@ class Yappy_grammar(Yappy):
 
     def RULERule(self, arg, context):
         lhs = arg[0]
+
         def grule(self, l):
             if l == []:
                 return (lhs, [], EmptySemRule)
-            if type(l[1]) is TupleType:
+            if isinstance(l[1], tuple):
                 return (lhs, l[0], eval(l[1][0], globals(),
                         context['locals']), l[1][1])
             else:
                 return (lhs, l[0], eval(l[1], globals(), context['locals']))
-
-        return map(lambda l: grule(self, l),arg[2])
+        return [grule(self, l) for l in arg[2]]
 
     def GRule(self, args, context):
-        if context.has_key('rules'):
+        if 'rules' in context:
             context['rules'] = args[0] + context['rules']
         else:
             context['rules'] = args[0]
@@ -2085,6 +2106,7 @@ class Stack:
         return '[Stack:%s]' % self.stack
 
     def __cmp__(self, other):
+        cmp = lambda a, b: (a > b) - (a < b)
         return cmp(self.stack, other.stack)
 
     def __len__(self):

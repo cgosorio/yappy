@@ -22,7 +22,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 @author: Rogério Reis & Nelma Moreira {rvr,nam}@ncc.up.pt
-         (small changes by César García Osorio cgosorio@ubu.es)
+         (several changes by César García Osorio cgosorio@ubu.es)
 """
 
 
@@ -148,3 +148,23 @@ class Set(object):
         new = Set()
         new.members = self.members[:]
         return new
+
+    def __eq__(self, other):
+        if isinstance(other, list):
+            return set(self.members) == set(other)
+        elif isinstance(other, Set):
+            return set(self.members) == set(other.members)
+        else:
+            raise TypeError("Incompatible type for Set comparison")
+
+
+if __name__ == '__main__':
+    oset1 = Set()
+    oset1.append(1)
+    oset1.append(2)
+    oset2 = Set()
+    oset2.append(2)
+    oset2.append(1)
+    print(oset1 == oset2)
+    print(oset1 == [1, 2])
+    # print(oset1 == 2)  # This raise an exception
