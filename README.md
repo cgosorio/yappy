@@ -102,6 +102,8 @@ if self.Log.noconflicts:
     n_sr = len(self.Log.conflicts.get('sr', []))
     n_rr = len(self.Log.conflicts.get('rr', []))
     if n_sr + n_rr > self.Log.expect:
-        print "LR conflicts: number %s value %s" %(n_sr+n_rr,self.Log.conflicts)
-        print """If it is Ok, set expect to the number of conflicts and build table again"""
+        print("LR conflicts: number %s value %s" %
+              (n_sr+n_rr,self.Log.conflicts))
+        print("If it is Ok, set expect to the number of",
+              "conflicts and build table again")
 ```
